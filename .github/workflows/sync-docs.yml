@@ -1,0 +1,54 @@
+name: Sync Backend Docs to Gateway CLAUDE.md
+
+on:
+  repository_dispatch:
+    types: [backend-updated]
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Which service was updated"
+        required: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout gateway
+        uses: actions/checkout@v4
+
+      - name: Run Claude Code to update CLAUDE.md
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            A backend service was updated: ${{ github.event.client_payload.service || inputs.service || 'unknown' }}
+
+            Your job: update CLAUDE.md in this gateway repo with the latest API documentation.
+
+            For each backend service, clone its repo and read:
+            - api/*/v1/*.proto files (gRPC service definitions)
+            - ent/schema/*.go files (data models)
+            - internal/service/*.go files (RPC implementations)
+
+            Backend repos (all public on github.com/makesalekz):
+            iam, products, warehouse, sales, orders, agents, stores, platform-billing, billing, media, notifications, rbac, tenants
+
+            Update the "Backend Services" section in CLAUDE.md with:
+            - All RPC methods per service
+            - Request/Response types
+            - Any new endpoints added
+
+            Keep the format concise. Don't change other sections.
+            Commit changes if CLAUDE.md was updated.
+
+      - name: Create PR if changes
+        uses: peter-evans/create-pull-request@v5
+        with:
+          branch: docs/sync-backend-${{ github.run_number }}
+          title: "docs: sync backend API documentation"
+          body: |
+            Auto-synced CLAUDE.md with latest backend service APIs.
+            Triggered by: ${{ github.event.client_payload.service || inputs.service || 'manual' }}
+          labels: docs
