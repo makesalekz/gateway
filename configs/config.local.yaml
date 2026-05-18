@@ -1,0 +1,14 @@
+server:
+  http:
+    addr: 0.0.0.0:8080
+discovery:
+  iam: localhost:9000
+  products: localhost:9001
+  warehouse: localhost:9002
+  sales: localhost:9003
+  orders: localhost:9004
+  agents: localhost:9005
+  stores: localhost:9006
+  platform-billing: localhost:9007
+db: ""
+nats: nats://nats:4222

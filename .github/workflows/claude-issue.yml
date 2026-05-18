@@ -1,0 +1,49 @@
+name: Claude Code - Implement Issue
+
+on:
+  issues:
+    types: [opened, labeled]
+
+jobs:
+  implement:
+    if: contains(github.event.issue.labels.*.name, 'endpoint')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create branch
+        run: |
+          BRANCH="feature/issue-${{ github.event.issue.number }}"
+          git checkout -b "$BRANCH"
+          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+
+      - name: Run Claude Code
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Read the GitHub issue #${{ github.event.issue.number }}:
+            Title: ${{ github.event.issue.title }}
+            Body: ${{ github.event.issue.body }}
+
+            Implement the requested endpoint in this Gateway BFF service.
+            Follow the existing code patterns and style.
+            Read CLAUDE.md for backend service documentation.
+            Write tests.
+            Commit changes.
+
+      - name: Create PR
+        uses: peter-evans/create-pull-request@v5
+        with:
+          branch: ${{ env.BRANCH }}
+          title: "feat: ${{ github.event.issue.title }}"
+          body: |
+            Closes #${{ github.event.issue.number }}
+
+            Implemented by Claude Code.
+          labels: automated

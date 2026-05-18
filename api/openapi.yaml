@@ -1,0 +1,1040 @@
+openapi: 3.0.3
+info:
+  title: UMAG Gateway API
+  description: BFF REST API for UMAG mobile apps (Cashier, Owner, Agent)
+  version: 0.1.0
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+security:
+  - bearerAuth: []
+
+paths:
+  # --- Auth (public) ---
+  /api/v1/auth/phone:
+    post:
+      tags: [Auth]
+      summary: Request OTP by phone
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone]
+              properties:
+                phone:
+                  type: string
+                  example: "+77001234567"
+      responses:
+        "200":
+          description: OTP sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  /api/v1/auth/email:
+    post:
+      tags: [Auth]
+      summary: Authenticate by email and password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  example: "user@example.com"
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  /api/v1/auth/code:
+    post:
+      tags: [Auth]
+      summary: Verify OTP code
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, code]
+              properties:
+                phone:
+                  type: string
+                  example: "+77001234567"
+                code:
+                  type: string
+                  example: "777333"
+      responses:
+        "200":
+          description: Token pair returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  /api/v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        "200":
+          description: New token pair
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  # --- Cashier (POS) ---
+  /api/v1/sales:
+    post:
+      tags: [Cashier]
+      summary: Create a sale
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSaleRequest"
+      responses:
+        "201":
+          description: Sale created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sale"
+
+  /api/v1/sales/return:
+    post:
+      tags: [Cashier]
+      summary: Create a return
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReturnRequest"
+      responses:
+        "201":
+          description: Return created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sale"
+
+  /api/v1/shifts/open:
+    post:
+      tags: [Cashier]
+      summary: Open a cashier shift
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                store_id:
+                  type: integer
+                  format: int64
+                cash_open:
+                  type: string
+                  example: "5000"
+      responses:
+        "201":
+          description: Shift opened
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Shift"
+
+  /api/v1/shifts/close:
+    post:
+      tags: [Cashier]
+      summary: Close a cashier shift
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                shift_id:
+                  type: integer
+                  format: int64
+                cash_close:
+                  type: string
+                  example: "15000"
+      responses:
+        "200":
+          description: Shift closed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Shift"
+
+  /api/v1/sync:
+    post:
+      tags: [Cashier]
+      summary: Sync offline operations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SyncRequest"
+      responses:
+        "200":
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncResponse"
+
+  /api/v1/products:
+    get:
+      tags: [Cashier, Owner]
+      summary: List products
+      parameters:
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/from_id"
+      responses:
+        "200":
+          description: Product list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListProductsResponse"
+
+  /api/v1/products/search:
+    get:
+      tags: [Cashier]
+      summary: Search products by name, barcode, or SKU
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/from_id"
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListProductsResponse"
+
+  /api/v1/products/{id}:
+    get:
+      tags: [Cashier]
+      summary: Get product by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Product details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          description: Product not found
+
+  # --- Owner (Dashboard) ---
+  /api/v1/dashboard/sales:
+    get:
+      tags: [Owner]
+      summary: Get aggregated sales data
+      parameters:
+        - name: store_id
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Sales dashboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSalesResponse"
+
+  /api/v1/dashboard/stock:
+    get:
+      tags: [Owner]
+      summary: Get stock items
+      parameters:
+        - name: warehouse_id
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/from_id"
+      responses:
+        "200":
+          description: Stock items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetStockResponse"
+
+  /api/v1/stores:
+    get:
+      tags: [Owner]
+      summary: List stores
+      parameters:
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/from_id"
+      responses:
+        "200":
+          description: Store list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListStoresResponse"
+
+  /api/v1/stores/{id}:
+    get:
+      tags: [Owner]
+      summary: Get store by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Store details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Store"
+
+  /api/v1/shifts:
+    get:
+      tags: [Owner]
+      summary: List shifts
+      parameters:
+        - name: store_id
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/from_id"
+      responses:
+        "200":
+          description: Shifts list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListShiftsResponse"
+
+  /api/v1/cashier-log:
+    get:
+      tags: [Owner]
+      summary: Get cashier activity log
+      parameters:
+        - name: store_id
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: actor_id
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/from_id"
+      responses:
+        "200":
+          description: Cashier log
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CashierLogResponse"
+
+  /api/v1/billing/report:
+    get:
+      tags: [Owner]
+      summary: Get billing report
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            example: "2026-01"
+      responses:
+        "200":
+          description: Billing report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingReport"
+
+  # --- Agent (SFA) ---
+  /api/v1/routes:
+    get:
+      tags: [Agent]
+      summary: List routes for current agent
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/from_id"
+      responses:
+        "200":
+          description: Routes list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListRoutesResponse"
+
+  /api/v1/routes/{id}:
+    get:
+      tags: [Agent]
+      summary: Get route by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Route details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Route"
+
+  /api/v1/visits/checkin:
+    post:
+      tags: [Agent]
+      summary: Check in at a store
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckInRequest"
+      responses:
+        "201":
+          description: Visit created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Visit"
+
+  /api/v1/visits/checkout:
+    post:
+      tags: [Agent]
+      summary: Check out from a store
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckOutRequest"
+      responses:
+        "200":
+          description: Visit updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Visit"
+
+  /api/v1/visits/photo:
+    post:
+      tags: [Agent]
+      summary: Upload a visit photo
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [visit_id, photo]
+              properties:
+                visit_id:
+                  type: integer
+                  format: int64
+                photo:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Photo uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VisitPhoto"
+
+  /api/v1/orders:
+    post:
+      tags: [Agent]
+      summary: Create an order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderRequest"
+      responses:
+        "201":
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+    get:
+      tags: [Agent]
+      summary: List orders
+      parameters:
+        - name: store_id
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/from_id"
+      responses:
+        "200":
+          description: Orders list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListOrdersResponse"
+
+  /api/v1/onboard:
+    post:
+      tags: [Agent]
+      summary: Onboard a new store
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OnboardStoreRequest"
+      responses:
+        "201":
+          description: Store onboarded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OnboardStoreResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        format: int32
+        default: 20
+    from_id:
+      name: from_id
+      in: query
+      schema:
+        type: integer
+        format: int64
+
+  schemas:
+    AuthResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        expires_in:
+          type: integer
+          format: int64
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        tenant_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        barcode:
+          type: string
+        category_id:
+          type: integer
+          format: int64
+        unit:
+          type: string
+        purchase_price:
+          type: string
+        selling_price:
+          type: string
+        description:
+          type: string
+        sku:
+          type: string
+
+    ListProductsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Product"
+        total:
+          type: integer
+          format: int32
+
+    SaleItem:
+      type: object
+      properties:
+        product_id:
+          type: integer
+          format: int64
+        quantity:
+          type: integer
+          format: int32
+        price:
+          type: string
+
+    CreateSaleRequest:
+      type: object
+      properties:
+        store_id:
+          type: integer
+          format: int64
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SaleItem"
+
+    CreateReturnRequest:
+      type: object
+      properties:
+        sale_id:
+          type: integer
+          format: int64
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SaleItem"
+        reason:
+          type: string
+
+    Sale:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        tenant_id:
+          type: integer
+          format: int64
+        store_id:
+          type: integer
+          format: int64
+        total:
+          type: string
+        status:
+          type: string
+
+    Shift:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        tenant_id:
+          type: integer
+          format: int64
+        store_id:
+          type: integer
+          format: int64
+        actor_id:
+          type: integer
+          format: int64
+        status:
+          type: string
+        cash_open:
+          type: string
+
+    SyncRequest:
+      type: object
+      properties:
+        operations:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              payload:
+                type: object
+
+    SyncResponse:
+      type: object
+      properties:
+        processed:
+          type: integer
+          format: int32
+        failed:
+          type: integer
+          format: int32
+        errors:
+          type: array
+          items:
+            type: string
+
+    DashboardSalesResponse:
+      type: object
+      properties:
+        total_sales:
+          type: string
+        total_returns:
+          type: string
+        net_sales:
+          type: string
+        transactions_count:
+          type: integer
+          format: int32
+
+    StockItem:
+      type: object
+      properties:
+        product_id:
+          type: integer
+          format: int64
+        product_name:
+          type: string
+        warehouse_id:
+          type: integer
+          format: int64
+        quantity:
+          type: integer
+          format: int32
+
+    GetStockResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/StockItem"
+        total:
+          type: integer
+          format: int32
+
+    Store:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        tenant_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        address:
+          type: string
+        phone:
+          type: string
+
+    ListStoresResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Store"
+        total:
+          type: integer
+          format: int32
+
+    ListShiftsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Shift"
+        total:
+          type: integer
+          format: int32
+
+    CashierLogEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        type:
+          type: string
+        amount:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    CashierLogResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CashierLogEntry"
+        total:
+          type: integer
+          format: int32
+
+    BillingReport:
+      type: object
+      properties:
+        tenant_id:
+          type: integer
+          format: int64
+        period:
+          type: string
+        total_revenue:
+          type: string
+        commission:
+          type: string
+        status:
+          type: string
+
+    Route:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        tenant_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        date:
+          type: string
+          format: date
+        store_ids:
+          type: array
+          items:
+            type: integer
+            format: int64
+        status:
+          type: string
+
+    ListRoutesResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Route"
+        total:
+          type: integer
+          format: int32
+
+    CheckInRequest:
+      type: object
+      properties:
+        route_id:
+          type: integer
+          format: int64
+        store_id:
+          type: integer
+          format: int64
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+
+    CheckOutRequest:
+      type: object
+      properties:
+        visit_id:
+          type: integer
+          format: int64
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        notes:
+          type: string
+
+    Visit:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        route_id:
+          type: integer
+          format: int64
+        store_id:
+          type: integer
+          format: int64
+        status:
+          type: string
+        check_in_at:
+          type: string
+          format: date-time
+        check_out_at:
+          type: string
+          format: date-time
+
+    VisitPhoto:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        visit_id:
+          type: integer
+          format: int64
+        url:
+          type: string
+
+    OrderItem:
+      type: object
+      properties:
+        product_id:
+          type: integer
+          format: int64
+        quantity:
+          type: integer
+          format: int32
+        price:
+          type: string
+
+    CreateOrderRequest:
+      type: object
+      properties:
+        store_id:
+          type: integer
+          format: int64
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
+        notes:
+          type: string
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        tenant_id:
+          type: integer
+          format: int64
+        store_id:
+          type: integer
+          format: int64
+        status:
+          type: string
+        total:
+          type: string
+
+    ListOrdersResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Order"
+        total:
+          type: integer
+          format: int32
+
+    OnboardStoreRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+        phone:
+          type: string
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+
+    OnboardStoreResponse:
+      type: object
+      properties:
+        store_id:
+          type: integer
+          format: int64
+        status:
+          type: string
