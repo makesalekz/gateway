@@ -4,13 +4,12 @@ This is the REST API gateway for UMAG mobile apps. It proxies REST requests to b
 
 ## Project Documentation
 
-@../docs/index.md
-@../docs/api-contracts.md
-@../docs/data-models.md
-@../docs/integration-architecture.md
-@../docs/development-guide.md
-@../docs/project-overview.md
-@../docs/source-tree-analysis.md
+@docs/index.md
+@docs/api-contracts.md
+@docs/data-models.md
+@docs/integration-architecture.md
+@docs/development-guide.md
+@docs/project-overview.md
 
 ## Architecture
 

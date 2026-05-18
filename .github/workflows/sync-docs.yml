@@ -1,4 +1,4 @@
-name: Sync Backend Docs to Gateway CLAUDE.md
+name: Sync Backend Docs to Gateway
 
 on:
   repository_dispatch:
@@ -14,41 +14,43 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
     steps:
       - name: Checkout gateway
         uses: actions/checkout@v4
 
-      - name: Run Claude Code to update CLAUDE.md
+      - name: Run Claude Code to update docs
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
             A backend service was updated: ${{ github.event.client_payload.service || inputs.service || 'unknown' }}
 
-            Your job: update CLAUDE.md in this gateway repo with the latest API documentation.
+            Your job: update docs/ folder AND CLAUDE.md in this gateway repo.
 
-            For each backend service, clone its repo and read:
-            - api/*/v1/*.proto files (gRPC service definitions)
-            - ent/schema/*.go files (data models)
+            For each backend service, clone its repo from github.com/makesalekz and read:
+            - api/*/v1/*.proto files (gRPC service definitions, messages, RPCs)
+            - ent/schema/*.go files (data models, fields, edges)
             - internal/service/*.go files (RPC implementations)
+            - internal/biz/*.go files (business logic, NATS events)
 
-            Backend repos (all public on github.com/makesalekz):
+            Backend repos (all public):
             iam, products, warehouse, sales, orders, agents, stores, platform-billing, billing, media, notifications, rbac, tenants
 
-            Update the "Backend Services" section in CLAUDE.md with:
-            - All RPC methods per service
-            - Request/Response types
-            - Any new endpoints added
+            Update these files:
+            1. docs/api-contracts.md — all RPC methods per service with params
+            2. docs/data-models.md — all Ent schemas with fields and types
+            3. docs/integration-architecture.md — service dependencies, NATS events
+            4. CLAUDE.md "Backend Services" section — concise RPC list per service
 
-            Keep the format concise. Don't change other sections.
-            Commit changes if CLAUDE.md was updated.
+            Keep format consistent with existing docs. Commit all changes.
 
-      - name: Create PR if changes
+      - name: Create PR
         uses: peter-evans/create-pull-request@v5
         with:
-          branch: docs/sync-backend-${{ github.run_number }}
-          title: "docs: sync backend API documentation"
+          branch: docs/sync-${{ github.run_number }}
+          title: "docs: sync backend API docs"
           body: |
-            Auto-synced CLAUDE.md with latest backend service APIs.
+            Auto-synced docs/ with latest backend APIs.
             Triggered by: ${{ github.event.client_payload.service || inputs.service || 'manual' }}
           labels: docs
