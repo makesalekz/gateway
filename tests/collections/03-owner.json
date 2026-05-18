@@ -1,0 +1,285 @@
+{
+  "info": {
+    "_postman_id": "03-owner",
+    "name": "03 — Owner Flow",
+    "description": "Owner dashboard: sales analytics, stock, stores, shifts, cashier log, billing.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{access_token}}", "type": "string" }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "exec": [
+          "if (!pm.environment.get('access_token')) {",
+          "    throw new Error('access_token is empty — run 01-auth first');",
+          "}"
+        ],
+        "type": "text/javascript"
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Dashboard — sales",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Sales dashboard shape', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('total_sales');",
+              "    pm.expect(json).to.have.property('total_returns');",
+              "    pm.expect(json).to.have.property('net_sales');",
+              "    pm.expect(json).to.have.property('transactions_count');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/dashboard/sales?date_from=2026-01-01&date_to=2026-12-31",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "dashboard", "sales"],
+          "query": [
+            { "key": "date_from", "value": "2026-01-01" },
+            { "key": "date_to", "value": "2026-12-31" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Dashboard — stock",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Stock response shape', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('items');",
+              "    pm.expect(json.items).to.be.an('array');",
+              "    pm.expect(json).to.have.property('total');",
+              "});",
+              "",
+              "pm.test('Stock item shape', function () {",
+              "    var json = pm.response.json();",
+              "    if (json.items.length > 0) {",
+              "        var s = json.items[0];",
+              "        pm.expect(s).to.have.property('product_id');",
+              "        pm.expect(s).to.have.property('product_name');",
+              "        pm.expect(s).to.have.property('quantity');",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/dashboard/stock?limit=20",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "dashboard", "stock"],
+          "query": [
+            { "key": "limit", "value": "20" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "List stores",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Stores list shape', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('items');",
+              "    pm.expect(json.items).to.be.an('array');",
+              "    pm.expect(json).to.have.property('total');",
+              "});",
+              "",
+              "pm.test('Store shape and save first store_id', function () {",
+              "    var json = pm.response.json();",
+              "    if (json.items.length > 0) {",
+              "        var s = json.items[0];",
+              "        pm.expect(s).to.have.property('id');",
+              "        pm.expect(s).to.have.property('name');",
+              "        pm.expect(s).to.have.property('address');",
+              "        pm.environment.set('store_id', String(s.id));",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/stores?limit=20",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "stores"],
+          "query": [
+            { "key": "limit", "value": "20" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "List shifts",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Shifts list shape', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('items');",
+              "    pm.expect(json.items).to.be.an('array');",
+              "    pm.expect(json).to.have.property('total');",
+              "});",
+              "",
+              "pm.test('Shift shape', function () {",
+              "    var json = pm.response.json();",
+              "    if (json.items.length > 0) {",
+              "        var s = json.items[0];",
+              "        pm.expect(s).to.have.property('id');",
+              "        pm.expect(s).to.have.property('status');",
+              "        pm.expect(s).to.have.property('store_id');",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/shifts?limit=20",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "shifts"],
+          "query": [
+            { "key": "limit", "value": "20" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Cashier log",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Cashier log shape', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('items');",
+              "    pm.expect(json.items).to.be.an('array');",
+              "    pm.expect(json).to.have.property('total');",
+              "});",
+              "",
+              "pm.test('Log entry shape', function () {",
+              "    var json = pm.response.json();",
+              "    if (json.items.length > 0) {",
+              "        var e = json.items[0];",
+              "        pm.expect(e).to.have.property('id');",
+              "        pm.expect(e).to.have.property('type');",
+              "        pm.expect(e).to.have.property('amount');",
+              "        pm.expect(e).to.have.property('created_at');",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/cashier-log?limit=20",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "cashier-log"],
+          "query": [
+            { "key": "limit", "value": "20" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Billing report",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Billing report shape', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('tenant_id');",
+              "    pm.expect(json).to.have.property('period');",
+              "    pm.expect(json).to.have.property('total_revenue');",
+              "    pm.expect(json).to.have.property('commission');",
+              "    pm.expect(json).to.have.property('status');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/billing/report?period=2026-05",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "billing", "report"],
+          "query": [
+            { "key": "period", "value": "2026-05" }
+          ]
+        }
+      }
+    }
+  ]
+}

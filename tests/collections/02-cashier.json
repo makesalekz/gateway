@@ -1,0 +1,316 @@
+{
+  "info": {
+    "_postman_id": "02-cashier",
+    "name": "02 — Cashier Flow",
+    "description": "POS cashier flow: products, shifts, sales, returns, sync.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{access_token}}", "type": "string" }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "exec": [
+          "if (!pm.environment.get('access_token')) {",
+          "    throw new Error('access_token is empty — run 01-auth first');",
+          "}"
+        ],
+        "type": "text/javascript"
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "List products",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response has items array and total', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('items');",
+              "    pm.expect(json.items).to.be.an('array');",
+              "    pm.expect(json).to.have.property('total');",
+              "});",
+              "",
+              "pm.test('Product shape is correct', function () {",
+              "    var json = pm.response.json();",
+              "    if (json.items.length > 0) {",
+              "        var p = json.items[0];",
+              "        pm.expect(p).to.have.property('id');",
+              "        pm.expect(p).to.have.property('name');",
+              "        pm.expect(p).to.have.property('selling_price');",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/products?limit=20",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "products"],
+          "query": [
+            { "key": "limit", "value": "20" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Search products",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response has items array', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('items');",
+              "    pm.expect(json.items).to.be.an('array');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/products/search?q=test&limit=10",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "products", "search"],
+          "query": [
+            { "key": "q", "value": "test" },
+            { "key": "limit", "value": "10" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Open shift",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 201', function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test('Shift is open', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('id');",
+              "    pm.expect(json.status).to.eql('open');",
+              "    pm.expect(json).to.have.property('store_id');",
+              "    pm.expect(json).to.have.property('cash_open');",
+              "});",
+              "",
+              "pm.test('Save shift_id', function () {",
+              "    var json = pm.response.json();",
+              "    pm.environment.set('shift_id', json.id);",
+              "    if (json.store_id) {",
+              "        pm.environment.set('store_id', String(json.store_id));",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"store_id\": 42,\n  \"cash_open\": \"5000.00\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/shifts/open",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "shifts", "open"]
+        }
+      }
+    },
+    {
+      "name": "Create sale",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 201', function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test('Sale response shape', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('id');",
+              "    pm.expect(json).to.have.property('total');",
+              "    pm.expect(json).to.have.property('status');",
+              "    pm.expect(json.status).to.eql('completed');",
+              "});",
+              "",
+              "pm.test('Save sale_id', function () {",
+              "    var json = pm.response.json();",
+              "    pm.environment.set('sale_id', json.id);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"store_id\": 42,\n  \"items\": [\n    { \"product_id\": 101, \"quantity\": 2, \"price\": \"1500.00\" },\n    { \"product_id\": 205, \"quantity\": 1, \"price\": \"3200.00\" }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/sales",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "sales"]
+        }
+      }
+    },
+    {
+      "name": "Return item",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 201', function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test('Return response shape', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('id');",
+              "    pm.expect(json).to.have.property('total');",
+              "    pm.expect(json).to.have.property('status');",
+              "    pm.expect(json.status).to.eql('returned');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"sale_id\": {{sale_id}},\n  \"items\": [\n    { \"product_id\": 101, \"quantity\": 1, \"price\": \"1500.00\" }\n  ],\n  \"reason\": \"Defective item\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/sales/return",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "sales", "return"]
+        }
+      }
+    },
+    {
+      "name": "Close shift",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Shift is closed', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('id');",
+              "    pm.expect(json.status).to.eql('closed');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"shift_id\": {{shift_id}},\n  \"cash_close\": \"15000.00\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/shifts/close",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "shifts", "close"]
+        }
+      }
+    },
+    {
+      "name": "Sync offline operations",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Sync response shape', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('processed');",
+              "    pm.expect(json).to.have.property('failed');",
+              "    pm.expect(json).to.have.property('errors');",
+              "    pm.expect(json.processed).to.be.a('number');",
+              "    pm.expect(json.errors).to.be.an('array');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"operations\": [\n    {\n      \"type\": \"sale\",\n      \"payload\": {\n        \"store_id\": 42,\n        \"items\": [\n          { \"product_id\": 101, \"quantity\": 1, \"price\": \"1500.00\" }\n        ]\n      }\n    },\n    {\n      \"type\": \"shift_open\",\n      \"payload\": {\n        \"store_id\": 42,\n        \"cash_open\": \"5000.00\"\n      }\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/sync",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "sync"]
+        }
+      }
+    }
+  ]
+}

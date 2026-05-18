@@ -1,0 +1,492 @@
+{
+  "info": {
+    "_postman_id": "08-rbac",
+    "name": "08 — RBAC Access Control",
+    "description": "Role-based access: cashier can sell but not billing, owner can dashboard but not checkin, agent can order but not open shift.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "exec": [
+          "// All RBAC tests require access_token from 01-auth",
+          "if (!pm.environment.get('access_token')) {",
+          "    throw new Error('access_token is empty — run 01-auth first');",
+          "}"
+        ],
+        "type": "text/javascript"
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Cashier — can list products",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200 — cashier can list products', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Products returned', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('items');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/products?limit=5",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "products"],
+          "query": [{ "key": "limit", "value": "5" }]
+        }
+      }
+    },
+    {
+      "name": "Cashier — can search products",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200 — cashier can search', function () {",
+              "    pm.response.to.have.status(200);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/products/search?q=coca&limit=5",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "products", "search"],
+          "query": [
+            { "key": "q", "value": "coca" },
+            { "key": "limit", "value": "5" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Cashier — can open shift",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 201 — cashier can open shift', function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test('Save shift for closing', function () {",
+              "    var json = pm.response.json();",
+              "    pm.environment.set('rbac_shift_id', String(json.id));",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+        },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"store_id\": 42,\n  \"cash_open\": \"5000.00\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/shifts/open",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "shifts", "open"]
+        }
+      }
+    },
+    {
+      "name": "Cashier — can create sale",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 201 — cashier can sell', function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test('Sale completed', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json.status).to.eql('completed');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+        },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"store_id\": 42,\n  \"items\": [\n    { \"product_id\": 101, \"quantity\": 1, \"price\": \"350.00\" }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/sales",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "sales"]
+        }
+      }
+    },
+    {
+      "name": "Cashier — close shift",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200 — shift closed', function () {",
+              "    pm.response.to.have.status(200);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+        },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"shift_id\": {{rbac_shift_id}},\n  \"cash_close\": \"10000.00\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/shifts/close",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "shifts", "close"]
+        }
+      }
+    },
+    {
+      "name": "Owner — can view dashboard sales",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200 — owner can view dashboard', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Dashboard data present', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('total_sales');",
+              "    pm.expect(json).to.have.property('transactions_count');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/dashboard/sales?date_from=2026-01-01&date_to=2026-12-31",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "dashboard", "sales"],
+          "query": [
+            { "key": "date_from", "value": "2026-01-01" },
+            { "key": "date_to", "value": "2026-12-31" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Owner — can view stores",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200 — owner can list stores', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Stores returned', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('items');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/stores?limit=10",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "stores"],
+          "query": [{ "key": "limit", "value": "10" }]
+        }
+      }
+    },
+    {
+      "name": "Owner — can view billing report",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200 — owner can view billing', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Billing data present', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('commission');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/billing/report?period=2026-05",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "billing", "report"],
+          "query": [{ "key": "period", "value": "2026-05" }]
+        }
+      }
+    },
+    {
+      "name": "Owner — can view cashier log",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200 — owner can view log', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Log data present', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('items');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/cashier-log?limit=10",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "cashier-log"],
+          "query": [{ "key": "limit", "value": "10" }]
+        }
+      }
+    },
+    {
+      "name": "Agent — can list routes",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200 — agent can list routes', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Routes returned', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('items');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/routes?limit=10",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "routes"],
+          "query": [{ "key": "limit", "value": "10" }]
+        }
+      }
+    },
+    {
+      "name": "Agent — can create orders",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 201 — agent can create order', function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test('Order created', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('id');",
+              "    pm.expect(json.status).to.eql('created');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+        },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"store_id\": 42,\n  \"items\": [\n    { \"product_id\": 101, \"quantity\": 10, \"price\": \"250.00\" }\n  ],\n  \"notes\": \"RBAC test order\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/orders",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "orders"]
+        }
+      }
+    },
+    {
+      "name": "Agent — can list orders",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200 — agent can list orders', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Orders returned', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('items');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/orders?limit=10",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "orders"],
+          "query": [{ "key": "limit", "value": "10" }]
+        }
+      }
+    },
+    {
+      "name": "Agent — can onboard store",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 201 — agent can onboard', function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test('Store onboarded', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('store_id');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+        },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"RBAC Test Store\",\n  \"address\": \"1 RBAC St, Almaty\",\n  \"phone\": \"+77010009988\",\n  \"latitude\": 43.250000,\n  \"longitude\": 76.920000\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/onboard",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "onboard"]
+        }
+      }
+    }
+  ]
+}

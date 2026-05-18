@@ -1,0 +1,136 @@
+{
+  "info": {
+    "_postman_id": "01-auth",
+    "name": "01 — Auth Flow",
+    "description": "Authentication flow: request OTP, verify code, refresh token.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Request OTP by phone",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response has token fields', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('access_token');",
+              "    pm.expect(json).to.have.property('refresh_token');",
+              "    pm.expect(json).to.have.property('expires_in');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"phone\": \"{{phone}}\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/auth/phone",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "auth", "phone"]
+        }
+      }
+    },
+    {
+      "name": "Verify OTP code",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response contains valid tokens', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json.access_token).to.be.a('string').and.not.empty;",
+              "    pm.expect(json.refresh_token).to.be.a('string').and.not.empty;",
+              "    pm.expect(json.expires_in).to.be.a('number').and.to.be.above(0);",
+              "});",
+              "",
+              "pm.test('Save tokens to environment', function () {",
+              "    var json = pm.response.json();",
+              "    pm.environment.set('access_token', json.access_token);",
+              "    pm.environment.set('refresh_token', json.refresh_token);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"code\": \"{{otp_code}}\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/auth/code",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "auth", "code"]
+        }
+      }
+    },
+    {
+      "name": "Refresh access token",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('New tokens returned', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json.access_token).to.be.a('string').and.not.empty;",
+              "    pm.expect(json.refresh_token).to.be.a('string').and.not.empty;",
+              "    pm.expect(json.expires_in).to.be.a('number').and.to.be.above(0);",
+              "});",
+              "",
+              "pm.test('Update tokens in environment', function () {",
+              "    var json = pm.response.json();",
+              "    pm.environment.set('access_token', json.access_token);",
+              "    pm.environment.set('refresh_token', json.refresh_token);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/auth/refresh",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "auth", "refresh"]
+        }
+      }
+    }
+  ]
+}

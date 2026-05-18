@@ -1,0 +1,288 @@
+{
+  "info": {
+    "_postman_id": "04-agent",
+    "name": "04 — Agent Flow",
+    "description": "SFA agent flow: routes, visits, orders, onboarding.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{access_token}}", "type": "string" }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "exec": [
+          "if (!pm.environment.get('access_token')) {",
+          "    throw new Error('access_token is empty — run 01-auth first');",
+          "}"
+        ],
+        "type": "text/javascript"
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "List routes",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Routes list shape', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('items');",
+              "    pm.expect(json.items).to.be.an('array');",
+              "    pm.expect(json).to.have.property('total');",
+              "});",
+              "",
+              "pm.test('Route shape and save first route_id', function () {",
+              "    var json = pm.response.json();",
+              "    if (json.items.length > 0) {",
+              "        var r = json.items[0];",
+              "        pm.expect(r).to.have.property('id');",
+              "        pm.expect(r).to.have.property('name');",
+              "        pm.expect(r).to.have.property('status');",
+              "        pm.expect(r).to.have.property('store_ids');",
+              "        pm.environment.set('route_id', String(r.id));",
+              "        if (r.store_ids && r.store_ids.length > 0) {",
+              "            pm.environment.set('store_id', String(r.store_ids[0]));",
+              "        }",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/routes?date=2026-05-18&limit=20",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "routes"],
+          "query": [
+            { "key": "date", "value": "2026-05-18" },
+            { "key": "limit", "value": "20" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Check in at store",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 201', function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test('Visit created with checked_in status', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('id');",
+              "    pm.expect(json.status).to.eql('checked_in');",
+              "});",
+              "",
+              "pm.test('Save visit_id', function () {",
+              "    var json = pm.response.json();",
+              "    pm.environment.set('visit_id', String(json.id));",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"route_id\": 1,\n  \"store_id\": 42,\n  \"latitude\": 43.238949,\n  \"longitude\": 76.945465\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/visits/checkin",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "visits", "checkin"]
+        }
+      }
+    },
+    {
+      "name": "Check out from store",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Visit updated with checked_out status', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('id');",
+              "    pm.expect(json.status).to.eql('checked_out');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"visit_id\": {{visit_id}},\n  \"latitude\": 43.238949,\n  \"longitude\": 76.945465,\n  \"notes\": \"Shelf restocked, new promo materials placed\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/visits/checkout",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "visits", "checkout"]
+        }
+      }
+    },
+    {
+      "name": "Create order",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 201', function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test('Order response shape', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('id');",
+              "    pm.expect(json).to.have.property('store_id');",
+              "    pm.expect(json).to.have.property('total');",
+              "    pm.expect(json).to.have.property('status');",
+              "    pm.expect(json.status).to.eql('created');",
+              "});",
+              "",
+              "pm.test('Save order_id', function () {",
+              "    var json = pm.response.json();",
+              "    pm.environment.set('order_id', String(json.id));",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"store_id\": 42,\n  \"items\": [\n    { \"product_id\": 101, \"quantity\": 24, \"price\": \"250.00\" },\n    { \"product_id\": 205, \"quantity\": 12, \"price\": \"180.00\" }\n  ],\n  \"notes\": \"Urgent — restock before weekend\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/orders",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "orders"]
+        }
+      }
+    },
+    {
+      "name": "List orders",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Orders list shape', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('items');",
+              "    pm.expect(json.items).to.be.an('array');",
+              "    pm.expect(json).to.have.property('total');",
+              "});",
+              "",
+              "pm.test('Order shape', function () {",
+              "    var json = pm.response.json();",
+              "    if (json.items.length > 0) {",
+              "        var o = json.items[0];",
+              "        pm.expect(o).to.have.property('id');",
+              "        pm.expect(o).to.have.property('store_id');",
+              "        pm.expect(o).to.have.property('status');",
+              "        pm.expect(o).to.have.property('total');",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/orders?limit=20",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "orders"],
+          "query": [
+            { "key": "limit", "value": "20" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Onboard new store",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 201', function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test('Onboard response shape', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('store_id');",
+              "    pm.expect(json).to.have.property('status');",
+              "    pm.expect(json.status).to.eql('created');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"New Corner Shop\",\n  \"address\": \"45 Tole Bi St, Almaty\",\n  \"phone\": \"+77019876543\",\n  \"latitude\": 43.255800,\n  \"longitude\": 76.928500\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/onboard",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "onboard"]
+        }
+      }
+    }
+  ]
+}

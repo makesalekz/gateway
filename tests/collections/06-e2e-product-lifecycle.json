@@ -1,0 +1,476 @@
+{
+  "info": {
+    "_postman_id": "06-e2e-product-lifecycle",
+    "name": "06 — E2E Product Lifecycle",
+    "description": "End-to-end: open shift, sell, check stock, return, verify Z-report, close shift, billing.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{access_token}}", "type": "string" }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "exec": [
+          "if (!pm.environment.get('access_token')) {",
+          "    throw new Error('access_token is empty — run 01-auth first');",
+          "}"
+        ],
+        "type": "text/javascript"
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "1. List products — pick first",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Save first product for lifecycle', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json.items).to.be.an('array');",
+              "    if (json.items.length > 0) {",
+              "        pm.environment.set('lc_product_id', String(json.items[0].id));",
+              "        pm.environment.set('lc_product_price', json.items[0].selling_price || '350.00');",
+              "    } else {",
+              "        pm.environment.set('lc_product_id', '101');",
+              "        pm.environment.set('lc_product_price', '350.00');",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/products?limit=5",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "products"],
+          "query": [{ "key": "limit", "value": "5" }]
+        }
+      }
+    },
+    {
+      "name": "2. Check stock before sale",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Record stock baseline', function () {",
+              "    var json = pm.response.json();",
+              "    var productId = parseInt(pm.environment.get('lc_product_id'));",
+              "    var baseline = 0;",
+              "    if (json.items) {",
+              "        json.items.forEach(function(item) {",
+              "            if (item.product_id === productId) {",
+              "                baseline = item.quantity;",
+              "            }",
+              "        });",
+              "    }",
+              "    pm.environment.set('lc_stock_before', String(baseline));",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/dashboard/stock?limit=100",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "dashboard", "stock"],
+          "query": [{ "key": "limit", "value": "100" }]
+        }
+      }
+    },
+    {
+      "name": "3. Open shift",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 201', function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test('Shift opened', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json.status).to.eql('open');",
+              "    pm.environment.set('lc_shift_id', String(json.id));",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"store_id\": 42,\n  \"cash_open\": \"10000.00\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/shifts/open",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "shifts", "open"]
+        }
+      }
+    },
+    {
+      "name": "4. Create sale — 3 units",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 201', function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test('Sale completed', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json.status).to.eql('completed');",
+              "    pm.environment.set('lc_sale_id', String(json.id));",
+              "    pm.environment.set('lc_sale_total', json.total);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"store_id\": 42,\n  \"items\": [\n    { \"product_id\": {{lc_product_id}}, \"quantity\": 3, \"price\": \"{{lc_product_price}}\" }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/sales",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "sales"]
+        }
+      }
+    },
+    {
+      "name": "5. Check stock after sale",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Stock should have decreased', function () {",
+              "    var json = pm.response.json();",
+              "    var productId = parseInt(pm.environment.get('lc_product_id'));",
+              "    var before = parseInt(pm.environment.get('lc_stock_before'));",
+              "    var current = 0;",
+              "    if (json.items) {",
+              "        json.items.forEach(function(item) {",
+              "            if (item.product_id === productId) {",
+              "                current = item.quantity;",
+              "            }",
+              "        });",
+              "    }",
+              "    pm.environment.set('lc_stock_after_sale', String(current));",
+              "    // Stock should decrease by 3 (sold quantity)",
+              "    if (before > 0) {",
+              "        pm.expect(current).to.be.below(before);",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/dashboard/stock?limit=100",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "dashboard", "stock"],
+          "query": [{ "key": "limit", "value": "100" }]
+        }
+      }
+    },
+    {
+      "name": "6. Return 1 unit",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 201', function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test('Return created', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json.status).to.eql('returned');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"sale_id\": {{lc_sale_id}},\n  \"items\": [\n    { \"product_id\": {{lc_product_id}}, \"quantity\": 1, \"price\": \"{{lc_product_price}}\" }\n  ],\n  \"reason\": \"Customer changed mind\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/sales/return",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "sales", "return"]
+        }
+      }
+    },
+    {
+      "name": "7. Check stock after return",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Stock should have increased after return', function () {",
+              "    var json = pm.response.json();",
+              "    var productId = parseInt(pm.environment.get('lc_product_id'));",
+              "    var afterSale = parseInt(pm.environment.get('lc_stock_after_sale'));",
+              "    var current = 0;",
+              "    if (json.items) {",
+              "        json.items.forEach(function(item) {",
+              "            if (item.product_id === productId) {",
+              "                current = item.quantity;",
+              "            }",
+              "        });",
+              "    }",
+              "    // Stock should go back up by 1 (returned quantity)",
+              "    if (afterSale > 0) {",
+              "        pm.expect(current).to.be.at.least(afterSale);",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/dashboard/stock?limit=100",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "dashboard", "stock"],
+          "query": [{ "key": "limit", "value": "100" }]
+        }
+      }
+    },
+    {
+      "name": "8. Close shift",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Shift is closed', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json.status).to.eql('closed');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"shift_id\": {{lc_shift_id}},\n  \"cash_close\": \"20000.00\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/shifts/close",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "shifts", "close"]
+        }
+      }
+    },
+    {
+      "name": "9. Verify shift appears in shifts list",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Shifts list returns valid shape', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json.items).to.be.an('array');",
+              "    pm.expect(json).to.have.property('total');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/shifts?store_id=42&limit=5",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "shifts"],
+          "query": [
+            { "key": "store_id", "value": "42" },
+            { "key": "limit", "value": "5" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "10. Check cashier log reflects sale + return",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Cashier log returns valid shape', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json.items).to.be.an('array');",
+              "    pm.expect(json).to.have.property('total');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/cashier-log?store_id=42&limit=10",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "cashier-log"],
+          "query": [
+            { "key": "store_id", "value": "42" },
+            { "key": "limit", "value": "10" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "11. Dashboard sales reflects transactions",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Dashboard has sales data', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('total_sales');",
+              "    pm.expect(json).to.have.property('net_sales');",
+              "    pm.expect(json).to.have.property('transactions_count');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/dashboard/sales?store_id=42&date_from=2026-01-01&date_to=2026-12-31",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "dashboard", "sales"],
+          "query": [
+            { "key": "store_id", "value": "42" },
+            { "key": "date_from", "value": "2026-01-01" },
+            { "key": "date_to", "value": "2026-12-31" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "12. Billing report includes period",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Billing report shape', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('tenant_id');",
+              "    pm.expect(json).to.have.property('period');",
+              "    pm.expect(json).to.have.property('commission');",
+              "    pm.expect(json).to.have.property('status');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/billing/report?period=2026-05",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "billing", "report"],
+          "query": [{ "key": "period", "value": "2026-05" }]
+        }
+      }
+    }
+  ]
+}

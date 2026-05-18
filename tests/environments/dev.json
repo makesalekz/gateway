@@ -1,0 +1,19 @@
+{
+  "id": "umag-gateway-dev",
+  "name": "UMAG Gateway — Dev",
+  "values": [
+    { "key": "base_url", "value": "http://213.155.20.182:8080", "type": "default", "enabled": true },
+    { "key": "phone", "value": "+77001234567", "type": "default", "enabled": true },
+    { "key": "otp_code", "value": "777333", "type": "default", "enabled": true },
+    { "key": "access_token", "value": "", "type": "default", "enabled": true },
+    { "key": "refresh_token", "value": "", "type": "default", "enabled": true },
+    { "key": "tenant_id", "value": "", "type": "default", "enabled": true },
+    { "key": "store_id", "value": "", "type": "default", "enabled": true },
+    { "key": "shift_id", "value": "", "type": "default", "enabled": true },
+    { "key": "sale_id", "value": "", "type": "default", "enabled": true },
+    { "key": "visit_id", "value": "", "type": "default", "enabled": true },
+    { "key": "route_id", "value": "", "type": "default", "enabled": true },
+    { "key": "order_id", "value": "", "type": "default", "enabled": true }
+  ],
+  "_postman_variable_scope": "environment"
+}

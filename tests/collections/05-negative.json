@@ -1,0 +1,658 @@
+{
+  "info": {
+    "_postman_id": "05-negative",
+    "name": "05 — Negative Tests",
+    "description": "Negative and error-handling tests. Tests that depend on backend validation accept both error and stub-success responses (stubs don't validate).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "GET /products without token → 401",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 401 — no auth', function () {",
+              "    pm.response.to.have.status(401);",
+              "});",
+              "",
+              "pm.test('Error body present', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('error');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/products",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "products"]
+        }
+      }
+    },
+    {
+      "name": "POST /sales without token → 401",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 401 — no auth', function () {",
+              "    pm.response.to.have.status(401);",
+              "});",
+              "",
+              "pm.test('Error body present', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('error');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"store_id\": 42, \"items\": [{\"product_id\": 101, \"quantity\": 1, \"price\": \"100.00\"}]}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/sales",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "sales"]
+        }
+      }
+    },
+    {
+      "name": "GET /dashboard/sales without token → 401",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 401', function () {",
+              "    pm.response.to.have.status(401);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/dashboard/sales",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "dashboard", "sales"]
+        }
+      }
+    },
+    {
+      "name": "GET /routes without token → 401",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 401', function () {",
+              "    pm.response.to.have.status(401);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/routes",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "routes"]
+        }
+      }
+    },
+    {
+      "name": "POST /orders without token → 401",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 401', function () {",
+              "    pm.response.to.have.status(401);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"store_id\": 42, \"items\": [{\"product_id\": 101, \"quantity\": 1, \"price\": \"100.00\"}]}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/orders",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "orders"]
+        }
+      }
+    },
+    {
+      "name": "POST /shifts/open without token → 401",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 401', function () {",
+              "    pm.response.to.have.status(401);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"store_id\": 42, \"cash_open\": \"5000.00\"}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/shifts/open",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "shifts", "open"]
+        }
+      }
+    },
+    {
+      "name": "POST /sync without token → 401",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 401', function () {",
+              "    pm.response.to.have.status(401);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"operations\": []}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/sync",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "sync"]
+        }
+      }
+    },
+    {
+      "name": "POST /billing/report without token → 401",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 401', function () {",
+              "    pm.response.to.have.status(401);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/billing/report",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "billing", "report"]
+        }
+      }
+    },
+    {
+      "name": "POST /visits/checkin without token → 401",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 401', function () {",
+              "    pm.response.to.have.status(401);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"route_id\": 1, \"store_id\": 42, \"latitude\": 43.23, \"longitude\": 76.94}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/visits/checkin",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "visits", "checkin"]
+        }
+      }
+    },
+    {
+      "name": "POST /onboard without token → 401",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 401', function () {",
+              "    pm.response.to.have.status(401);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\": \"Test\", \"address\": \"Addr\", \"phone\": \"+7700\", \"latitude\": 43.0, \"longitude\": 76.0}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/onboard",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "onboard"]
+        }
+      }
+    },
+    {
+      "name": "POST /auth/phone with empty phone → 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 400 — phone required', function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test('Error body present', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('error');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"phone\": \"\"}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/auth/phone",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "auth", "phone"]
+        }
+      }
+    },
+    {
+      "name": "POST /auth/code with empty fields → 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 400 — fields required', function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test('Error body present', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('error');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"phone\": \"\", \"code\": \"\"}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/auth/code",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "auth", "code"]
+        }
+      }
+    },
+    {
+      "name": "POST /auth/refresh with empty token → 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 400 — refresh_token required', function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test('Error body present', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('error');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"refresh_token\": \"\"}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/auth/refresh",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "auth", "refresh"]
+        }
+      }
+    },
+    {
+      "name": "POST /sales with malformed body → 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 400 — malformed JSON', function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test('Error body present', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('error');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+        },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{not valid json"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/sales",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "sales"]
+        }
+      }
+    },
+    {
+      "name": "POST /shifts/open with malformed body → 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 400 — malformed JSON', function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test('Error body present', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('error');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+        },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "not-json"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/shifts/open",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "shifts", "open"]
+        }
+      }
+    },
+    {
+      "name": "POST /visits/checkin with malformed body → 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 400 — malformed JSON', function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test('Error body present', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('error');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+        },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{{{{bad"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/visits/checkin",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "visits", "checkin"]
+        }
+      }
+    },
+    {
+      "name": "POST /orders with malformed body → 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 400 — malformed JSON', function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "",
+              "pm.test('Error body present', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('error');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+        },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "invalid-json"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/orders",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "orders"]
+        }
+      }
+    },
+    {
+      "name": "POST /sales/return with malformed body → 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 400', function () {",
+              "    pm.response.to.have.status(400);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+        },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "bad-json"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/sales/return",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "sales", "return"]
+        }
+      }
+    },
+    {
+      "name": "POST /onboard with malformed body → 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 400', function () {",
+              "    pm.response.to.have.status(400);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+        },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "bad"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/onboard",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "onboard"]
+        }
+      }
+    },
+    {
+      "name": "Bearer with invalid JWT format → 401",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 401 — invalid token', function () {",
+              "    pm.response.to.have.status(401);",
+              "});",
+              "",
+              "pm.test('Error body present', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('error');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "not-a-jwt", "type": "string" }]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/products",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "products"]
+        }
+      }
+    }
+  ]
+}

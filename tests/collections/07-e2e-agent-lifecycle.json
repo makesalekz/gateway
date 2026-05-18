@@ -1,0 +1,386 @@
+{
+  "info": {
+    "_postman_id": "07-e2e-agent-lifecycle",
+    "name": "07 — E2E Agent Lifecycle",
+    "description": "End-to-end agent workflow: auth, routes, checkin, order, checkout, verify.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{access_token}}", "type": "string" }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "exec": [
+          "if (!pm.environment.get('access_token')) {",
+          "    throw new Error('access_token is empty — run 01-auth first');",
+          "}"
+        ],
+        "type": "text/javascript"
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "1. List routes for today",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Routes list and save first route', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('items');",
+              "    pm.expect(json.items).to.be.an('array');",
+              "    if (json.items.length > 0) {",
+              "        pm.environment.set('ag_route_id', String(json.items[0].id));",
+              "        if (json.items[0].store_ids && json.items[0].store_ids.length > 0) {",
+              "            pm.environment.set('ag_store_id', String(json.items[0].store_ids[0]));",
+              "        }",
+              "    } else {",
+              "        pm.environment.set('ag_route_id', '1');",
+              "        pm.environment.set('ag_store_id', '42');",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/routes?date=2026-05-18&limit=10",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "routes"],
+          "query": [
+            { "key": "date", "value": "2026-05-18" },
+            { "key": "limit", "value": "10" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "2. Get route detail",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200 or 404', function () {",
+              "    pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+              "});",
+              "",
+              "pm.test('Route has stores', function () {",
+              "    if (pm.response.code === 200) {",
+              "        var json = pm.response.json();",
+              "        pm.expect(json).to.have.property('id');",
+              "        pm.expect(json).to.have.property('store_ids');",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/routes/{{ag_route_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "routes", "{{ag_route_id}}"]
+        }
+      }
+    },
+    {
+      "name": "3. Check in at first store",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 201', function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test('Visit created', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('id');",
+              "    pm.expect(json.status).to.eql('checked_in');",
+              "    pm.environment.set('ag_visit_id', String(json.id));",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"route_id\": {{ag_route_id}},\n  \"store_id\": {{ag_store_id}},\n  \"latitude\": 43.238949,\n  \"longitude\": 76.945465\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/visits/checkin",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "visits", "checkin"]
+        }
+      }
+    },
+    {
+      "name": "4. Check stock at store",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Stock data received', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('items');",
+              "    pm.expect(json.items).to.be.an('array');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/dashboard/stock?limit=50",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "dashboard", "stock"],
+          "query": [{ "key": "limit", "value": "50" }]
+        }
+      }
+    },
+    {
+      "name": "5. List products for ordering",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Products available', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json.items).to.be.an('array');",
+              "    if (json.items.length > 0) {",
+              "        pm.environment.set('ag_product_id', String(json.items[0].id));",
+              "        pm.environment.set('ag_product_price', json.items[0].selling_price || '250.00');",
+              "    } else {",
+              "        pm.environment.set('ag_product_id', '101');",
+              "        pm.environment.set('ag_product_price', '250.00');",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/products?limit=5",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "products"],
+          "query": [{ "key": "limit", "value": "5" }]
+        }
+      }
+    },
+    {
+      "name": "6. Create order during visit",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 201', function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test('Order created', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('id');",
+              "    pm.expect(json.status).to.eql('created');",
+              "    pm.expect(json).to.have.property('total');",
+              "    pm.environment.set('ag_order_id', String(json.id));",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"store_id\": {{ag_store_id}},\n  \"items\": [\n    { \"product_id\": {{ag_product_id}}, \"quantity\": 24, \"price\": \"{{ag_product_price}}\" }\n  ],\n  \"notes\": \"Restock order during field visit\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/orders",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "orders"]
+        }
+      }
+    },
+    {
+      "name": "7. List orders — verify new order",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Orders list returns valid shape', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json.items).to.be.an('array');",
+              "    pm.expect(json).to.have.property('total');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/orders?store_id={{ag_store_id}}&limit=10",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "orders"],
+          "query": [
+            { "key": "store_id", "value": "{{ag_store_id}}" },
+            { "key": "limit", "value": "10" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "8. Check out from store",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Visit checked out', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json.status).to.eql('checked_out');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"visit_id\": {{ag_visit_id}},\n  \"latitude\": 43.239000,\n  \"longitude\": 76.945500,\n  \"notes\": \"Visit complete — shelves restocked, order placed\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/visits/checkout",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "visits", "checkout"]
+        }
+      }
+    },
+    {
+      "name": "9. Onboard a new store found in field",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 201', function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test('Store onboarded', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('store_id');",
+              "    pm.expect(json.status).to.eql('created');",
+              "    pm.environment.set('ag_new_store_id', String(json.store_id));",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"E2E Test Shop\",\n  \"address\": \"99 Test Ave, Almaty\",\n  \"phone\": \"+77010001122\",\n  \"latitude\": 43.260000,\n  \"longitude\": 76.930000\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/onboard",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "onboard"]
+        }
+      }
+    },
+    {
+      "name": "10. New store visible in stores list",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Stores list returns valid shape', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json.items).to.be.an('array');",
+              "    pm.expect(json).to.have.property('total');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/stores?limit=50",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "stores"],
+          "query": [{ "key": "limit", "value": "50" }]
+        }
+      }
+    }
+  ]
+}

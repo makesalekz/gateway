@@ -1,0 +1,68 @@
+name: API Integration Tests
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Newman
+        run: npm install -g newman newman-reporter-htmlextra
+
+      - name: Run Auth tests
+        run: |
+          newman run tests/collections/01-auth.json \
+            -e tests/environments/dev.json \
+            --export-environment tests/environments/dev.json
+
+      - name: Run Cashier tests
+        run: |
+          newman run tests/collections/02-cashier.json \
+            -e tests/environments/dev.json \
+            --export-environment tests/environments/dev.json
+
+      - name: Run Owner tests
+        run: |
+          newman run tests/collections/03-owner.json \
+            -e tests/environments/dev.json \
+            --export-environment tests/environments/dev.json
+
+      - name: Run Agent tests
+        run: |
+          newman run tests/collections/04-agent.json \
+            -e tests/environments/dev.json \
+            --export-environment tests/environments/dev.json
+
+      - name: Run Negative tests
+        run: |
+          newman run tests/collections/05-negative.json \
+            -e tests/environments/dev.json \
+            --export-environment tests/environments/dev.json
+
+      - name: Run E2E Product Lifecycle tests
+        run: |
+          newman run tests/collections/06-e2e-product-lifecycle.json \
+            -e tests/environments/dev.json \
+            --export-environment tests/environments/dev.json
+
+      - name: Run E2E Agent Lifecycle tests
+        run: |
+          newman run tests/collections/07-e2e-agent-lifecycle.json \
+            -e tests/environments/dev.json \
+            --export-environment tests/environments/dev.json
+
+      - name: Run RBAC tests
+        run: |
+          newman run tests/collections/08-rbac.json \
+            -e tests/environments/dev.json \
+            --export-environment tests/environments/dev.json
+
+      - name: Run Data Integrity tests
+        run: |
+          newman run tests/collections/09-data-integrity.json \
+            -e tests/environments/dev.json \
+            --export-environment tests/environments/dev.json

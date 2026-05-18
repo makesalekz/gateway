@@ -68,7 +68,7 @@ type SyncRequest struct {
 type SyncResponse struct {
 	Processed int32    `json:"processed"`
 	Failed    int32    `json:"failed"`
-	Errors    []string `json:"errors,omitempty"`
+	Errors    []string `json:"errors"`
 }
 
 type ListShiftsRequest struct {
@@ -151,7 +151,7 @@ func (s *salesStub) CloseShift(_ context.Context, _ *CloseShiftRequest) (*Shift,
 }
 
 func (s *salesStub) SyncOperations(_ context.Context, _ *SyncRequest) (*SyncResponse, error) {
-	return &SyncResponse{Processed: 0}, nil
+	return &SyncResponse{Processed: 0, Errors: []string{}}, nil
 }
 
 func (s *salesStub) ListShifts(_ context.Context, _ *ListShiftsRequest) (*ListShiftsResponse, error) {
