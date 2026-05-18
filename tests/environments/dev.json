@@ -1,19 +1,159 @@
 {
+  "_": {
+    "postman_variable_scope": "environment",
+    "postman_exported_at": "2026-05-18T10:11:53.810Z",
+    "postman_exported_using": "Newman/6.2.2"
+  },
   "id": "umag-gateway-dev",
   "name": "UMAG Gateway — Dev",
   "values": [
-    { "key": "base_url", "value": "http://213.155.20.182:8080", "type": "default", "enabled": true },
-    { "key": "phone", "value": "+77001234567", "type": "default", "enabled": true },
-    { "key": "otp_code", "value": "777333", "type": "default", "enabled": true },
-    { "key": "access_token", "value": "", "type": "default", "enabled": true },
-    { "key": "refresh_token", "value": "", "type": "default", "enabled": true },
-    { "key": "tenant_id", "value": "", "type": "default", "enabled": true },
-    { "key": "store_id", "value": "", "type": "default", "enabled": true },
-    { "key": "shift_id", "value": "", "type": "default", "enabled": true },
-    { "key": "sale_id", "value": "", "type": "default", "enabled": true },
-    { "key": "visit_id", "value": "", "type": "default", "enabled": true },
-    { "key": "route_id", "value": "", "type": "default", "enabled": true },
-    { "key": "order_id", "value": "", "type": "default", "enabled": true }
+    {
+      "type": "any",
+      "value": "http://213.155.20.182:8080",
+      "key": "base_url"
+    },
+    {
+      "type": "any",
+      "value": "+77001234567",
+      "key": "phone"
+    },
+    {
+      "type": "any",
+      "value": "777333",
+      "key": "otp_code"
+    },
+    {
+      "type": "any",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzkxODU1MDAsImlhdCI6MTc3OTA5OTEwMCwiaXNzIjoiaWFtLXN0dWIiLCJtZW1iZXJJZCI6NSwidGVuYW50SWQiOjEwfQ.Dk1mBvho0-G3Cnxj4-ydZNFbhawL5oVseMo4589ssZM",
+      "key": "access_token"
+    },
+    {
+      "type": "any",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3ODE2OTExMDAsImlhdCI6MTc3OTA5OTEwMCwiaXNzIjoiaWFtLXN0dWIiLCJtZW1iZXJJZCI6NSwidGVuYW50SWQiOjEwLCJ0eXBlIjoicmVmcmVzaCJ9.MDU9heXmkSg2si-CfHduYoTZ37YL5gypQM9jGjJxYy0",
+      "key": "refresh_token"
+    },
+    {
+      "type": "any",
+      "value": "",
+      "key": "tenant_id"
+    },
+    {
+      "type": "any",
+      "value": "",
+      "key": "store_id"
+    },
+    {
+      "type": "any",
+      "value": 1,
+      "key": "shift_id"
+    },
+    {
+      "type": "any",
+      "value": 1,
+      "key": "sale_id"
+    },
+    {
+      "type": "any",
+      "value": "1",
+      "key": "visit_id"
+    },
+    {
+      "type": "any",
+      "value": "",
+      "key": "route_id"
+    },
+    {
+      "type": "any",
+      "value": "1",
+      "key": "order_id"
+    },
+    {
+      "type": "any",
+      "value": "0",
+      "key": "lc_stock_before"
+    },
+    {
+      "type": "any",
+      "value": "0",
+      "key": "lc_stock_after_sale"
+    },
+    {
+      "type": "any",
+      "value": "1",
+      "key": "rbac_shift_id"
+    },
+    {
+      "type": "any",
+      "value": "1",
+      "key": "di_shift_id"
+    },
+    {
+      "type": "any",
+      "value": "101",
+      "key": "lc_product_id"
+    },
+    {
+      "type": "any",
+      "value": "350.00",
+      "key": "lc_product_price"
+    },
+    {
+      "type": "any",
+      "value": "1",
+      "key": "lc_shift_id"
+    },
+    {
+      "type": "any",
+      "value": "1",
+      "key": "lc_sale_id"
+    },
+    {
+      "type": "any",
+      "value": "",
+      "key": "lc_sale_total"
+    },
+    {
+      "type": "any",
+      "value": "1",
+      "key": "ag_route_id"
+    },
+    {
+      "type": "any",
+      "value": "42",
+      "key": "ag_store_id"
+    },
+    {
+      "type": "any",
+      "value": "1",
+      "key": "ag_visit_id"
+    },
+    {
+      "type": "any",
+      "value": "101",
+      "key": "ag_product_id"
+    },
+    {
+      "type": "any",
+      "value": "250.00",
+      "key": "ag_product_price"
+    },
+    {
+      "type": "any",
+      "value": "1",
+      "key": "ag_order_id"
+    },
+    {
+      "type": "any",
+      "value": "1",
+      "key": "ag_new_store_id"
+    },
+    {
+      "type": "any",
+      "value": "1",
+      "key": "di_sale_id"
+    }
   ],
-  "_postman_variable_scope": "environment"
+  "_postman_variable_scope": "environment",
+  "_postman_exported_at": "2026-05-18T10:14:14.465Z",
+  "_postman_exported_using": "Newman/6.2.2"
 }
