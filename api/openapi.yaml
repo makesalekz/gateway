@@ -1,8 +1,27 @@
 openapi: 3.0.3
 info:
   title: UMAG Gateway API
-  description: BFF REST API for UMAG mobile apps (Cashier, Owner, Agent)
-  version: 0.1.0
+  description: |
+    BFF REST API for UMAG mobile apps (Cashier, Owner, Agent).
+
+    This gateway proxies JSON/REST requests to backend gRPC microservices
+    (IAM, Sales, Products, Warehouse, Stores, Orders, Agents, Billing).
+
+    ## Authentication
+    All endpoints except `/auth/*` and `/docs` require a JWT Bearer token.
+    Obtain tokens via the Auth endpoints (phone OTP or email+password flow).
+    The JWT contains `tenantId` and `memberId` claims used for authorization.
+
+    ## Pagination
+    List endpoints support cursor-based pagination via `limit` and `from_id`
+    query parameters.
+
+    ## Error Format
+    All errors return JSON: `{"error": "message"}`.
+  version: 1.0.0
+  contact:
+    name: UMAG Team
+
 servers:
   - url: http://localhost:8080
     description: Local development
@@ -10,570 +29,1030 @@ servers:
 security:
   - bearerAuth: []
 
+tags:
+  - name: Auth
+    description: Authentication — OTP by phone, email+password, code verification, token refresh
+  - name: Cashier
+    description: POS app — sales, returns, shifts, offline sync, product catalog
+  - name: Owner
+    description: Dashboard app — sales analytics, stock, stores, shifts, cashier log, billing
+  - name: Agent
+    description: SFA app — routes, store visits, photos, orders, onboarding
+  - name: Docs
+    description: OpenAPI specification
+
 paths:
-  # --- Auth (public) ---
+  # ── Docs (public) ──────────────────────────────────────────────────────
+  /api/v1/docs:
+    get:
+      tags: [Docs]
+      operationId: getOpenAPISpec
+      summary: Serve the OpenAPI specification
+      description: Returns this OpenAPI YAML specification file.
+      security: []
+      responses:
+        "200":
+          description: OpenAPI spec in YAML
+          content:
+            application/yaml:
+              schema:
+                type: string
+
+  # ── Auth (public) ──────────────────────────────────────────────────────
   /api/v1/auth/phone:
     post:
       tags: [Auth]
-      summary: Request OTP by phone
+      operationId: authByPhone
+      summary: Request OTP by phone number
+      description: |
+        Sends a one-time password (OTP) to the given phone number via SMS.
+        In DEBUG mode the OTP is always `777333`.
       security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [phone]
-              properties:
-                phone:
-                  type: string
-                  example: "+77001234567"
+              $ref: "#/components/schemas/AuthByPhoneRequest"
+            example:
+              phone: "+77001234567"
       responses:
         "200":
-          description: OTP sent
+          description: OTP sent. Returns stub token pair (actual tokens come after code verification).
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthResponse"
+              example:
+                access_token: ""
+                refresh_token: ""
+                expires_in: 0
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/v1/auth/email:
     post:
       tags: [Auth]
+      operationId: authByEmail
       summary: Authenticate by email and password
+      description: Authenticates a user with email and password credentials.
       security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [email, password]
-              properties:
-                email:
-                  type: string
-                  example: "user@example.com"
-                password:
-                  type: string
+              $ref: "#/components/schemas/AuthByEmailRequest"
+            example:
+              email: "user@example.com"
+              password: "s3cret"
       responses:
         "200":
-          description: Authenticated
+          description: Authenticated — token pair returned.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthResponse"
+              example:
+                access_token: "eyJhbGciOiJIUzI1NiIs..."
+                refresh_token: "eyJhbGciOiJIUzI1NiIs..."
+                expires_in: 3600
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/v1/auth/code:
     post:
       tags: [Auth]
+      operationId: authByCode
       summary: Verify OTP code
+      description: |
+        Verifies the OTP code sent to the user's phone.
+        Returns a JWT access/refresh token pair on success.
       security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [phone, code]
-              properties:
-                phone:
-                  type: string
-                  example: "+77001234567"
-                code:
-                  type: string
-                  example: "777333"
+              $ref: "#/components/schemas/AuthByCodeRequest"
+            example:
+              phone: "+77001234567"
+              code: "777333"
       responses:
         "200":
-          description: Token pair returned
+          description: Code verified — token pair returned.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthResponse"
+              example:
+                access_token: "eyJhbGciOiJIUzI1NiIs..."
+                refresh_token: "eyJhbGciOiJIUzI1NiIs..."
+                expires_in: 3600
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/v1/auth/refresh:
     post:
       tags: [Auth]
+      operationId: refreshToken
       summary: Refresh access token
+      description: Exchange a valid refresh token for a new access/refresh token pair.
       security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [refresh_token]
-              properties:
-                refresh_token:
-                  type: string
+              $ref: "#/components/schemas/RefreshTokenRequest"
+            example:
+              refresh_token: "eyJhbGciOiJIUzI1NiIs..."
       responses:
         "200":
-          description: New token pair
+          description: New token pair returned.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthResponse"
+              example:
+                access_token: "eyJhbGciOiJIUzI1NiIs..."
+                refresh_token: "eyJhbGciOiJIUzI1NiIs..."
+                expires_in: 3600
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
-  # --- Cashier (POS) ---
+  # ── Cashier (POS app) ─────────────────────────────────────────────────
   /api/v1/sales:
     post:
       tags: [Cashier]
+      operationId: createSale
       summary: Create a sale
+      description: |
+        Records a new sale transaction. The `tenant_id` and `actor_id` are
+        extracted from the JWT token automatically.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/CreateSaleRequest"
+            example:
+              store_id: 42
+              items:
+                - product_id: 101
+                  quantity: 2
+                  price: "1500.00"
+                - product_id: 205
+                  quantity: 1
+                  price: "3200.00"
       responses:
         "201":
-          description: Sale created
+          description: Sale created.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Sale"
+              example:
+                id: 1
+                tenant_id: 10
+                store_id: 42
+                total: "6200.00"
+                status: "completed"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/v1/sales/return:
     post:
       tags: [Cashier]
+      operationId: createReturn
       summary: Create a return
+      description: Records a return against an existing sale.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/CreateReturnRequest"
+            example:
+              sale_id: 1
+              items:
+                - product_id: 101
+                  quantity: 1
+                  price: "1500.00"
+              reason: "Defective item"
       responses:
         "201":
-          description: Return created
+          description: Return created.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Sale"
+              example:
+                id: 2
+                tenant_id: 10
+                store_id: 42
+                total: "1500.00"
+                status: "returned"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/v1/shifts/open:
     post:
       tags: [Cashier]
+      operationId: openShift
       summary: Open a cashier shift
+      description: Opens a new cashier shift at the specified store with an opening cash amount.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                store_id:
-                  type: integer
-                  format: int64
-                cash_open:
-                  type: string
-                  example: "5000"
+              $ref: "#/components/schemas/OpenShiftRequest"
+            example:
+              store_id: 42
+              cash_open: "5000.00"
       responses:
         "201":
-          description: Shift opened
+          description: Shift opened.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Shift"
+              example:
+                id: 1
+                tenant_id: 10
+                store_id: 42
+                actor_id: 5
+                status: "open"
+                cash_open: "5000.00"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/v1/shifts/close:
     post:
       tags: [Cashier]
+      operationId: closeShift
       summary: Close a cashier shift
+      description: Closes an open cashier shift and records the closing cash amount.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                shift_id:
-                  type: integer
-                  format: int64
-                cash_close:
-                  type: string
-                  example: "15000"
+              $ref: "#/components/schemas/CloseShiftRequest"
+            example:
+              shift_id: 1
+              cash_close: "15000.00"
       responses:
         "200":
-          description: Shift closed
+          description: Shift closed.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Shift"
+              example:
+                id: 1
+                tenant_id: 10
+                store_id: 42
+                actor_id: 5
+                status: "closed"
+                cash_open: "5000.00"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/v1/sync:
     post:
       tags: [Cashier]
+      operationId: syncOperations
       summary: Sync offline operations
+      description: |
+        Accepts a batch of operations recorded offline by the POS app and
+        processes them on the server. Each operation has a type (e.g. `sale`,
+        `return`, `shift_open`) and a JSON payload.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/SyncRequest"
+            example:
+              operations:
+                - type: "sale"
+                  payload:
+                    store_id: 42
+                    items:
+                      - product_id: 101
+                        quantity: 1
+                        price: "1500.00"
+                - type: "shift_open"
+                  payload:
+                    store_id: 42
+                    cash_open: "5000.00"
       responses:
         "200":
-          description: Sync result
+          description: Sync result.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/SyncResponse"
+              example:
+                processed: 2
+                failed: 0
+                errors: []
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/v1/products:
     get:
       tags: [Cashier, Owner]
+      operationId: listProducts
       summary: List products
+      description: Returns a paginated list of products for the current tenant.
       parameters:
         - $ref: "#/components/parameters/limit"
         - $ref: "#/components/parameters/from_id"
       responses:
         "200":
-          description: Product list
+          description: Product list.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListProductsResponse"
+              example:
+                items:
+                  - id: 101
+                    tenant_id: 10
+                    name: "Coca-Cola 0.5L"
+                    barcode: "4607001234567"
+                    category_id: 3
+                    unit: "pcs"
+                    purchase_price: "250.00"
+                    selling_price: "350.00"
+                    description: "Carbonated soft drink"
+                    sku: "CC-05L"
+                total: 1
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/v1/products/search:
     get:
       tags: [Cashier]
+      operationId: searchProducts
       summary: Search products by name, barcode, or SKU
+      description: Full-text search across product name, barcode, and SKU fields.
       parameters:
         - name: q
           in: query
           required: true
+          description: Search query (name, barcode, or SKU)
           schema:
             type: string
+          example: "coca"
         - $ref: "#/components/parameters/limit"
         - $ref: "#/components/parameters/from_id"
       responses:
         "200":
-          description: Search results
+          description: Search results.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListProductsResponse"
+              example:
+                items:
+                  - id: 101
+                    tenant_id: 10
+                    name: "Coca-Cola 0.5L"
+                    barcode: "4607001234567"
+                    category_id: 3
+                    unit: "pcs"
+                    purchase_price: "250.00"
+                    selling_price: "350.00"
+                    description: "Carbonated soft drink"
+                    sku: "CC-05L"
+                total: 1
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/v1/products/{id}:
     get:
       tags: [Cashier]
+      operationId: getProduct
       summary: Get product by ID
+      description: Returns a single product by its numeric ID.
       parameters:
         - name: id
           in: path
           required: true
+          description: Product ID
           schema:
             type: integer
             format: int64
+          example: 101
       responses:
         "200":
-          description: Product details
+          description: Product details.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Product"
+              example:
+                id: 101
+                tenant_id: 10
+                name: "Coca-Cola 0.5L"
+                barcode: "4607001234567"
+                category_id: 3
+                unit: "pcs"
+                purchase_price: "250.00"
+                selling_price: "350.00"
+                description: "Carbonated soft drink"
+                sku: "CC-05L"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
-          description: Product not found
+          $ref: "#/components/responses/NotFound"
 
-  # --- Owner (Dashboard) ---
+  # ── Owner (Dashboard app) ─────────────────────────────────────────────
   /api/v1/dashboard/sales:
     get:
       tags: [Owner]
+      operationId: getDashboardSales
       summary: Get aggregated sales data
+      description: Returns sales totals, returns, net sales, and transaction count for the given date range and store.
       parameters:
         - name: store_id
           in: query
+          description: Filter by store ID (optional — all stores if omitted)
           schema:
             type: integer
             format: int64
+          example: 42
         - name: date_from
           in: query
+          description: Start date (inclusive)
           schema:
             type: string
             format: date
+          example: "2026-05-01"
         - name: date_to
           in: query
+          description: End date (inclusive)
           schema:
             type: string
             format: date
+          example: "2026-05-17"
       responses:
         "200":
-          description: Sales dashboard
+          description: Sales dashboard.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/DashboardSalesResponse"
+              example:
+                total_sales: "1250000.00"
+                total_returns: "45000.00"
+                net_sales: "1205000.00"
+                transactions_count: 312
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/v1/dashboard/stock:
     get:
       tags: [Owner]
+      operationId: getDashboardStock
       summary: Get stock items
+      description: Returns a paginated list of stock items for a warehouse.
       parameters:
         - name: warehouse_id
           in: query
+          description: Filter by warehouse ID
           schema:
             type: integer
             format: int64
+          example: 1
         - $ref: "#/components/parameters/limit"
         - $ref: "#/components/parameters/from_id"
       responses:
         "200":
-          description: Stock items
+          description: Stock items.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/GetStockResponse"
+              example:
+                items:
+                  - product_id: 101
+                    product_name: "Coca-Cola 0.5L"
+                    warehouse_id: 1
+                    quantity: 48
+                total: 1
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/v1/stores:
     get:
       tags: [Owner]
+      operationId: listStores
       summary: List stores
+      description: Returns a paginated list of stores for the current tenant.
       parameters:
         - $ref: "#/components/parameters/limit"
         - $ref: "#/components/parameters/from_id"
       responses:
         "200":
-          description: Store list
+          description: Store list.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListStoresResponse"
+              example:
+                items:
+                  - id: 42
+                    tenant_id: 10
+                    name: "Main Store"
+                    address: "123 Abay Ave, Almaty"
+                    phone: "+77012345678"
+                total: 1
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/v1/stores/{id}:
     get:
       tags: [Owner]
+      operationId: getStore
       summary: Get store by ID
+      description: Returns a single store by its numeric ID.
       parameters:
         - name: id
           in: path
           required: true
+          description: Store ID
           schema:
             type: integer
             format: int64
+          example: 42
       responses:
         "200":
-          description: Store details
+          description: Store details.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Store"
+              example:
+                id: 42
+                tenant_id: 10
+                name: "Main Store"
+                address: "123 Abay Ave, Almaty"
+                phone: "+77012345678"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /api/v1/shifts:
     get:
       tags: [Owner]
+      operationId: listShifts
       summary: List shifts
+      description: Returns a paginated list of cashier shifts, optionally filtered by store.
       parameters:
         - name: store_id
           in: query
+          description: Filter by store ID
           schema:
             type: integer
             format: int64
+          example: 42
         - $ref: "#/components/parameters/limit"
         - $ref: "#/components/parameters/from_id"
       responses:
         "200":
-          description: Shifts list
+          description: Shifts list.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListShiftsResponse"
+              example:
+                items:
+                  - id: 1
+                    tenant_id: 10
+                    store_id: 42
+                    actor_id: 5
+                    status: "closed"
+                    cash_open: "5000.00"
+                total: 1
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/v1/cashier-log:
     get:
       tags: [Owner]
+      operationId: getCashierLog
       summary: Get cashier activity log
+      description: Returns a paginated log of cashier activities (sales, returns, cash-in/out), optionally filtered by store and actor.
       parameters:
         - name: store_id
           in: query
+          description: Filter by store ID
           schema:
             type: integer
             format: int64
+          example: 42
         - name: actor_id
           in: query
+          description: Filter by cashier (actor) ID
           schema:
             type: integer
             format: int64
+          example: 5
         - $ref: "#/components/parameters/limit"
         - $ref: "#/components/parameters/from_id"
       responses:
         "200":
-          description: Cashier log
+          description: Cashier log.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/CashierLogResponse"
+              example:
+                items:
+                  - id: 100
+                    type: "sale"
+                    amount: "6200.00"
+                    created_at: "2026-05-17T14:30:00Z"
+                  - id: 101
+                    type: "return"
+                    amount: "1500.00"
+                    created_at: "2026-05-17T15:10:00Z"
+                total: 2
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/v1/billing/report:
     get:
       tags: [Owner]
+      operationId: getBillingReport
       summary: Get billing report
+      description: Returns the billing report for the current tenant for a given period (YYYY-MM format).
       parameters:
         - name: period
           in: query
+          description: Billing period in YYYY-MM format
           schema:
             type: string
-            example: "2026-01"
+          example: "2026-05"
       responses:
         "200":
-          description: Billing report
+          description: Billing report.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/BillingReport"
+              example:
+                tenant_id: 10
+                period: "2026-05"
+                total_revenue: "1205000.00"
+                commission: "36150.00"
+                status: "open"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
-  # --- Agent (SFA) ---
+  # ── Agent (SFA app) ───────────────────────────────────────────────────
   /api/v1/routes:
     get:
       tags: [Agent]
+      operationId: listRoutes
       summary: List routes for current agent
+      description: Returns a paginated list of routes assigned to the authenticated agent, optionally filtered by date.
       parameters:
         - name: date
           in: query
+          description: Filter routes by date
           schema:
             type: string
             format: date
+          example: "2026-05-17"
         - $ref: "#/components/parameters/limit"
         - $ref: "#/components/parameters/from_id"
       responses:
         "200":
-          description: Routes list
+          description: Routes list.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListRoutesResponse"
+              example:
+                items:
+                  - id: 1
+                    tenant_id: 10
+                    name: "Almaty Center Route"
+                    date: "2026-05-17"
+                    store_ids: [42, 43, 44]
+                    status: "planned"
+                total: 1
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/v1/routes/{id}:
     get:
       tags: [Agent]
+      operationId: getRoute
       summary: Get route by ID
+      description: Returns a single route by its numeric ID.
       parameters:
         - name: id
           in: path
           required: true
+          description: Route ID
           schema:
             type: integer
             format: int64
+          example: 1
       responses:
         "200":
-          description: Route details
+          description: Route details.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Route"
+              example:
+                id: 1
+                tenant_id: 10
+                name: "Almaty Center Route"
+                date: "2026-05-17"
+                store_ids: [42, 43, 44]
+                status: "in_progress"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /api/v1/visits/checkin:
     post:
       tags: [Agent]
+      operationId: checkIn
       summary: Check in at a store
+      description: Records the agent's arrival at a store with GPS coordinates.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/CheckInRequest"
+            example:
+              route_id: 1
+              store_id: 42
+              latitude: 43.238949
+              longitude: 76.945465
       responses:
         "201":
-          description: Visit created
+          description: Visit created.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Visit"
+              example:
+                id: 1
+                route_id: 1
+                store_id: 42
+                status: "checked_in"
+                check_in_at: "2026-05-17T09:15:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/v1/visits/checkout:
     post:
       tags: [Agent]
+      operationId: checkOut
       summary: Check out from a store
+      description: Records the agent's departure from a store with GPS coordinates and optional notes.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/CheckOutRequest"
+            example:
+              visit_id: 1
+              latitude: 43.238949
+              longitude: 76.945465
+              notes: "Shelf restocked, new promo materials placed"
       responses:
         "200":
-          description: Visit updated
+          description: Visit updated.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Visit"
+              example:
+                id: 1
+                route_id: 1
+                store_id: 42
+                status: "checked_out"
+                check_in_at: "2026-05-17T09:15:00Z"
+                check_out_at: "2026-05-17T10:30:00Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/v1/visits/photo:
     post:
       tags: [Agent]
+      operationId: addVisitPhoto
       summary: Upload a visit photo
+      description: Uploads a photo taken during a store visit. Maximum file size is 10 MB.
       requestBody:
         required: true
         content:
           multipart/form-data:
             schema:
-              type: object
-              required: [visit_id, photo]
-              properties:
-                visit_id:
-                  type: integer
-                  format: int64
-                photo:
-                  type: string
-                  format: binary
+              $ref: "#/components/schemas/AddVisitPhotoForm"
       responses:
         "201":
-          description: Photo uploaded
+          description: Photo uploaded.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/VisitPhoto"
+              example:
+                id: 1
+                visit_id: 1
+                url: "https://cdn.umag.app/visits/1/photo-abc123.jpg"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/v1/orders:
     post:
       tags: [Agent]
+      operationId: createOrder
       summary: Create an order
+      description: Creates a new order for a store visited by the agent.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/CreateOrderRequest"
+            example:
+              store_id: 42
+              items:
+                - product_id: 101
+                  quantity: 24
+                  price: "250.00"
+                - product_id: 205
+                  quantity: 12
+                  price: "180.00"
+              notes: "Urgent — restock before weekend"
       responses:
         "201":
-          description: Order created
+          description: Order created.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Order"
+              example:
+                id: 1
+                tenant_id: 10
+                store_id: 42
+                status: "created"
+                total: "8160.00"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
     get:
       tags: [Agent]
+      operationId: listOrders
       summary: List orders
+      description: Returns a paginated list of orders, optionally filtered by store.
       parameters:
         - name: store_id
           in: query
+          description: Filter by store ID
           schema:
             type: integer
             format: int64
+          example: 42
         - $ref: "#/components/parameters/limit"
         - $ref: "#/components/parameters/from_id"
       responses:
         "200":
-          description: Orders list
+          description: Orders list.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListOrdersResponse"
+              example:
+                items:
+                  - id: 1
+                    tenant_id: 10
+                    store_id: 42
+                    status: "created"
+                    total: "8160.00"
+                total: 1
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/v1/onboard:
     post:
       tags: [Agent]
+      operationId: onboardStore
       summary: Onboard a new store
+      description: Registers a new store discovered by the agent in the field.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/OnboardStoreRequest"
+            example:
+              name: "New Corner Shop"
+              address: "45 Tole Bi St, Almaty"
+              phone: "+77019876543"
+              latitude: 43.255800
+              longitude: 76.928500
       responses:
         "201":
-          description: Store onboarded
+          description: Store onboarded.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/OnboardStoreResponse"
+              example:
+                store_id: 99
+                status: "created"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
 components:
   securitySchemes:
@@ -581,60 +1060,190 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+      description: |
+        JWT access token obtained from Auth endpoints.
+        Claims: `tenantId` (int64), `memberId` (int64), `groupsIds` ([]string).
 
   parameters:
     limit:
       name: limit
       in: query
+      description: Maximum number of items to return
       schema:
         type: integer
         format: int32
         default: 20
+        minimum: 1
+        maximum: 100
+      example: 20
     from_id:
       name: from_id
       in: query
+      description: Cursor — return items with ID greater than this value
       schema:
         type: integer
         format: int64
+      example: 0
+
+  responses:
+    BadRequest:
+      description: Invalid request (missing required fields, malformed body, invalid parameters).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: "invalid request body"
+    Unauthorized:
+      description: Missing or invalid JWT token.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: "missing authorization header"
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: "not found"
+    InternalError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: "internal server error"
 
   schemas:
+    # ── Error ──────────────────────────────────────────────────────────
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+      example:
+        error: "something went wrong"
+
+    # ── Auth ───────────────────────────────────────────────────────────
+    AuthByPhoneRequest:
+      type: object
+      required: [phone]
+      properties:
+        phone:
+          type: string
+          description: Phone number in E.164 format
+          example: "+77001234567"
+
+    AuthByEmailRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          description: User email address
+          example: "user@example.com"
+        password:
+          type: string
+          format: password
+          description: User password
+          example: "s3cret"
+
+    AuthByCodeRequest:
+      type: object
+      required: [phone, code]
+      properties:
+        phone:
+          type: string
+          description: Phone number that received the OTP
+          example: "+77001234567"
+        code:
+          type: string
+          description: 6-digit OTP code
+          minLength: 6
+          maxLength: 6
+          example: "777333"
+
+    RefreshTokenRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+          description: Refresh token from a previous auth response
+          example: "eyJhbGciOiJIUzI1NiIs..."
+
     AuthResponse:
       type: object
       properties:
         access_token:
           type: string
+          description: JWT access token (HS256)
+          example: "eyJhbGciOiJIUzI1NiIs..."
         refresh_token:
           type: string
+          description: JWT refresh token (30 day TTL)
+          example: "eyJhbGciOiJIUzI1NiIs..."
         expires_in:
           type: integer
           format: int64
+          description: Access token TTL in seconds
+          example: 3600
 
+    # ── Products ───────────────────────────────────────────────────────
     Product:
       type: object
       properties:
         id:
           type: integer
           format: int64
+          description: Product ID
+          example: 101
         tenant_id:
           type: integer
           format: int64
+          description: Tenant ID
+          example: 10
         name:
           type: string
+          description: Product name
+          example: "Coca-Cola 0.5L"
         barcode:
           type: string
+          description: EAN/UPC barcode
+          example: "4607001234567"
         category_id:
           type: integer
           format: int64
+          description: Category ID
+          example: 3
         unit:
           type: string
+          description: Unit of measure (pcs, kg, l, etc.)
+          example: "pcs"
         purchase_price:
           type: string
+          description: Purchase price (decimal string)
+          example: "250.00"
         selling_price:
           type: string
+          description: Selling price (decimal string)
+          example: "350.00"
         description:
           type: string
+          description: Product description
+          example: "Carbonated soft drink"
         sku:
           type: string
+          description: Stock keeping unit code
+          example: "CC-05L"
 
     ListProductsResponse:
       type: object
@@ -646,42 +1255,62 @@ components:
         total:
           type: integer
           format: int32
+          description: Total number of matching products
+          example: 150
 
+    # ── Sales ──────────────────────────────────────────────────────────
     SaleItem:
       type: object
+      required: [product_id, quantity, price]
       properties:
         product_id:
           type: integer
           format: int64
+          description: Product ID
+          example: 101
         quantity:
           type: integer
           format: int32
+          description: Quantity sold
+          example: 2
         price:
           type: string
+          description: Unit price (decimal string)
+          example: "1500.00"
 
     CreateSaleRequest:
       type: object
+      required: [store_id, items]
       properties:
         store_id:
           type: integer
           format: int64
+          description: Store where the sale occurred
+          example: 42
         items:
           type: array
+          minItems: 1
           items:
             $ref: "#/components/schemas/SaleItem"
 
     CreateReturnRequest:
       type: object
+      required: [sale_id, items]
       properties:
         sale_id:
           type: integer
           format: int64
+          description: Original sale ID
+          example: 1
         items:
           type: array
+          minItems: 1
           items:
             $ref: "#/components/schemas/SaleItem"
         reason:
           type: string
+          description: Reason for the return
+          example: "Defective item"
 
     Sale:
       type: object
@@ -689,16 +1318,56 @@ components:
         id:
           type: integer
           format: int64
+          description: Sale ID
+          example: 1
         tenant_id:
           type: integer
           format: int64
+          description: Tenant ID
+          example: 10
         store_id:
           type: integer
           format: int64
+          description: Store ID
+          example: 42
         total:
           type: string
+          description: Total amount (decimal string)
+          example: "6200.00"
         status:
           type: string
+          description: Sale status (completed, returned)
+          enum: [completed, returned]
+          example: "completed"
+
+    # ── Shifts ─────────────────────────────────────────────────────────
+    OpenShiftRequest:
+      type: object
+      required: [store_id]
+      properties:
+        store_id:
+          type: integer
+          format: int64
+          description: Store ID
+          example: 42
+        cash_open:
+          type: string
+          description: Opening cash amount (decimal string)
+          example: "5000.00"
+
+    CloseShiftRequest:
+      type: object
+      required: [shift_id]
+      properties:
+        shift_id:
+          type: integer
+          format: int64
+          description: Shift ID to close
+          example: 1
+        cash_close:
+          type: string
+          description: Closing cash amount (decimal string)
+          example: "15000.00"
 
     Shift:
       type: object
@@ -706,112 +1375,32 @@ components:
         id:
           type: integer
           format: int64
+          description: Shift ID
+          example: 1
         tenant_id:
           type: integer
           format: int64
+          description: Tenant ID
+          example: 10
         store_id:
           type: integer
           format: int64
+          description: Store ID
+          example: 42
         actor_id:
           type: integer
           format: int64
+          description: Cashier (actor) ID
+          example: 5
         status:
           type: string
+          description: Shift status
+          enum: [open, closed]
+          example: "open"
         cash_open:
           type: string
-
-    SyncRequest:
-      type: object
-      properties:
-        operations:
-          type: array
-          items:
-            type: object
-            properties:
-              type:
-                type: string
-              payload:
-                type: object
-
-    SyncResponse:
-      type: object
-      properties:
-        processed:
-          type: integer
-          format: int32
-        failed:
-          type: integer
-          format: int32
-        errors:
-          type: array
-          items:
-            type: string
-
-    DashboardSalesResponse:
-      type: object
-      properties:
-        total_sales:
-          type: string
-        total_returns:
-          type: string
-        net_sales:
-          type: string
-        transactions_count:
-          type: integer
-          format: int32
-
-    StockItem:
-      type: object
-      properties:
-        product_id:
-          type: integer
-          format: int64
-        product_name:
-          type: string
-        warehouse_id:
-          type: integer
-          format: int64
-        quantity:
-          type: integer
-          format: int32
-
-    GetStockResponse:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/StockItem"
-        total:
-          type: integer
-          format: int32
-
-    Store:
-      type: object
-      properties:
-        id:
-          type: integer
-          format: int64
-        tenant_id:
-          type: integer
-          format: int64
-        name:
-          type: string
-        address:
-          type: string
-        phone:
-          type: string
-
-    ListStoresResponse:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/Store"
-        total:
-          type: integer
-          format: int32
+          description: Opening cash amount
+          example: "5000.00"
 
     ListShiftsResponse:
       type: object
@@ -823,20 +1412,173 @@ components:
         total:
           type: integer
           format: int32
+          description: Total number of shifts
+          example: 25
 
+    # ── Sync ───────────────────────────────────────────────────────────
+    SyncOperation:
+      type: object
+      required: [type, payload]
+      properties:
+        type:
+          type: string
+          description: Operation type (sale, return, shift_open, shift_close)
+          example: "sale"
+        payload:
+          type: object
+          description: Operation-specific JSON payload
+          additionalProperties: true
+
+    SyncRequest:
+      type: object
+      required: [operations]
+      properties:
+        operations:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/SyncOperation"
+
+    SyncResponse:
+      type: object
+      properties:
+        processed:
+          type: integer
+          format: int32
+          description: Number of successfully processed operations
+          example: 5
+        failed:
+          type: integer
+          format: int32
+          description: Number of failed operations
+          example: 0
+        errors:
+          type: array
+          description: Error messages for failed operations (empty if none failed)
+          items:
+            type: string
+          example: []
+
+    # ── Dashboard ──────────────────────────────────────────────────────
+    DashboardSalesResponse:
+      type: object
+      properties:
+        total_sales:
+          type: string
+          description: Total sales amount (decimal string)
+          example: "1250000.00"
+        total_returns:
+          type: string
+          description: Total returns amount (decimal string)
+          example: "45000.00"
+        net_sales:
+          type: string
+          description: Net sales (total_sales - total_returns)
+          example: "1205000.00"
+        transactions_count:
+          type: integer
+          format: int32
+          description: Number of transactions in the period
+          example: 312
+
+    StockItem:
+      type: object
+      properties:
+        product_id:
+          type: integer
+          format: int64
+          description: Product ID
+          example: 101
+        product_name:
+          type: string
+          description: Product name
+          example: "Coca-Cola 0.5L"
+        warehouse_id:
+          type: integer
+          format: int64
+          description: Warehouse ID
+          example: 1
+        quantity:
+          type: integer
+          format: int32
+          description: Quantity in stock
+          example: 48
+
+    GetStockResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/StockItem"
+        total:
+          type: integer
+          format: int32
+          description: Total number of stock items
+          example: 85
+
+    # ── Stores ─────────────────────────────────────────────────────────
+    Store:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Store ID
+          example: 42
+        tenant_id:
+          type: integer
+          format: int64
+          description: Tenant ID
+          example: 10
+        name:
+          type: string
+          description: Store name
+          example: "Main Store"
+        address:
+          type: string
+          description: Physical address
+          example: "123 Abay Ave, Almaty"
+        phone:
+          type: string
+          description: Contact phone number
+          example: "+77012345678"
+
+    ListStoresResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Store"
+        total:
+          type: integer
+          format: int32
+          description: Total number of stores
+          example: 5
+
+    # ── Cashier Log ────────────────────────────────────────────────────
     CashierLogEntry:
       type: object
       properties:
         id:
           type: integer
           format: int64
+          description: Log entry ID
+          example: 100
         type:
           type: string
+          description: Entry type (sale, return, cash_in, cash_out)
+          example: "sale"
         amount:
           type: string
+          description: Amount (decimal string)
+          example: "6200.00"
         created_at:
           type: string
           format: date-time
+          description: When the event occurred
+          example: "2026-05-17T14:30:00Z"
 
     CashierLogResponse:
       type: object
@@ -848,43 +1590,71 @@ components:
         total:
           type: integer
           format: int32
+          description: Total number of log entries
+          example: 150
 
+    # ── Billing ────────────────────────────────────────────────────────
     BillingReport:
       type: object
       properties:
         tenant_id:
           type: integer
           format: int64
+          description: Tenant ID
+          example: 10
         period:
           type: string
+          description: Billing period (YYYY-MM)
+          example: "2026-05"
         total_revenue:
           type: string
+          description: Total revenue for the period (decimal string)
+          example: "1205000.00"
         commission:
           type: string
+          description: Platform commission (decimal string)
+          example: "36150.00"
         status:
           type: string
+          description: Period status
+          enum: [open, closed]
+          example: "open"
 
+    # ── Routes ─────────────────────────────────────────────────────────
     Route:
       type: object
       properties:
         id:
           type: integer
           format: int64
+          description: Route ID
+          example: 1
         tenant_id:
           type: integer
           format: int64
+          description: Tenant ID
+          example: 10
         name:
           type: string
+          description: Route name
+          example: "Almaty Center Route"
         date:
           type: string
           format: date
+          description: Scheduled date
+          example: "2026-05-17"
         store_ids:
           type: array
+          description: Ordered list of store IDs to visit
           items:
             type: integer
             format: int64
+          example: [42, 43, 44]
         status:
           type: string
+          description: Route status
+          enum: [planned, in_progress, completed]
+          example: "planned"
 
     ListRoutesResponse:
       type: object
@@ -896,37 +1666,58 @@ components:
         total:
           type: integer
           format: int32
+          description: Total number of routes
+          example: 3
 
+    # ── Visits ─────────────────────────────────────────────────────────
     CheckInRequest:
       type: object
+      required: [route_id, store_id, latitude, longitude]
       properties:
         route_id:
           type: integer
           format: int64
+          description: Route ID
+          example: 1
         store_id:
           type: integer
           format: int64
+          description: Store ID being visited
+          example: 42
         latitude:
           type: number
           format: double
+          description: GPS latitude
+          example: 43.238949
         longitude:
           type: number
           format: double
+          description: GPS longitude
+          example: 76.945465
 
     CheckOutRequest:
       type: object
+      required: [visit_id, latitude, longitude]
       properties:
         visit_id:
           type: integer
           format: int64
+          description: Visit ID to check out from
+          example: 1
         latitude:
           type: number
           format: double
+          description: GPS latitude
+          example: 43.238949
         longitude:
           type: number
           format: double
+          description: GPS longitude
+          example: 76.945465
         notes:
           type: string
+          description: Visit notes (optional)
+          example: "Shelf restocked, new promo materials placed"
 
     Visit:
       type: object
@@ -934,20 +1725,46 @@ components:
         id:
           type: integer
           format: int64
+          description: Visit ID
+          example: 1
         route_id:
           type: integer
           format: int64
+          description: Route ID
+          example: 1
         store_id:
           type: integer
           format: int64
+          description: Store ID
+          example: 42
         status:
           type: string
+          description: Visit status
+          enum: [checked_in, checked_out]
+          example: "checked_in"
         check_in_at:
           type: string
           format: date-time
+          description: Check-in timestamp
+          example: "2026-05-17T09:15:00Z"
         check_out_at:
           type: string
           format: date-time
+          description: Check-out timestamp (null if still checked in)
+          example: "2026-05-17T10:30:00Z"
+
+    AddVisitPhotoForm:
+      type: object
+      required: [visit_id, photo]
+      properties:
+        visit_id:
+          type: integer
+          format: int64
+          description: Visit ID to attach the photo to
+        photo:
+          type: string
+          format: binary
+          description: Photo file (max 10 MB)
 
     VisitPhoto:
       type: object
@@ -955,36 +1772,57 @@ components:
         id:
           type: integer
           format: int64
+          description: Photo ID
+          example: 1
         visit_id:
           type: integer
           format: int64
+          description: Visit ID
+          example: 1
         url:
           type: string
+          format: uri
+          description: URL of the uploaded photo
+          example: "https://cdn.umag.app/visits/1/photo-abc123.jpg"
 
+    # ── Orders ─────────────────────────────────────────────────────────
     OrderItem:
       type: object
+      required: [product_id, quantity, price]
       properties:
         product_id:
           type: integer
           format: int64
+          description: Product ID
+          example: 101
         quantity:
           type: integer
           format: int32
+          description: Quantity ordered
+          example: 24
         price:
           type: string
+          description: Unit price (decimal string)
+          example: "250.00"
 
     CreateOrderRequest:
       type: object
+      required: [store_id, items]
       properties:
         store_id:
           type: integer
           format: int64
+          description: Store ID
+          example: 42
         items:
           type: array
+          minItems: 1
           items:
             $ref: "#/components/schemas/OrderItem"
         notes:
           type: string
+          description: Order notes (optional)
+          example: "Urgent — restock before weekend"
 
     Order:
       type: object
@@ -992,16 +1830,27 @@ components:
         id:
           type: integer
           format: int64
+          description: Order ID
+          example: 1
         tenant_id:
           type: integer
           format: int64
+          description: Tenant ID
+          example: 10
         store_id:
           type: integer
           format: int64
+          description: Store ID
+          example: 42
         status:
           type: string
+          description: Order status
+          enum: [created, confirmed, shipped, accepted, rejected]
+          example: "created"
         total:
           type: string
+          description: Total amount (decimal string)
+          example: "8160.00"
 
     ListOrdersResponse:
       type: object
@@ -1013,22 +1862,36 @@ components:
         total:
           type: integer
           format: int32
+          description: Total number of orders
+          example: 15
 
+    # ── Onboard ────────────────────────────────────────────────────────
     OnboardStoreRequest:
       type: object
+      required: [name, address, phone, latitude, longitude]
       properties:
         name:
           type: string
+          description: Store name
+          example: "New Corner Shop"
         address:
           type: string
+          description: Physical address
+          example: "45 Tole Bi St, Almaty"
         phone:
           type: string
+          description: Contact phone number
+          example: "+77019876543"
         latitude:
           type: number
           format: double
+          description: GPS latitude
+          example: 43.255800
         longitude:
           type: number
           format: double
+          description: GPS longitude
+          example: 76.928500
 
     OnboardStoreResponse:
       type: object
@@ -1036,5 +1899,9 @@ components:
         store_id:
           type: integer
           format: int64
+          description: Newly created store ID
+          example: 99
         status:
           type: string
+          description: Onboarding status
+          example: "created"
