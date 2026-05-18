@@ -2,6 +2,16 @@
 
 This is the REST API gateway for UMAG mobile apps. It proxies REST requests to backend gRPC services.
 
+## Project Documentation
+
+@../docs/index.md
+@../docs/api-contracts.md
+@../docs/data-models.md
+@../docs/integration-architecture.md
+@../docs/development-guide.md
+@../docs/project-overview.md
+@../docs/source-tree-analysis.md
+
 ## Architecture
 
 - Go + gorilla/mux (REST, not gRPC)
